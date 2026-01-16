@@ -1,0 +1,7 @@
+Flask
+scikit-learn
+PyPDF2
+numpy
+wordcloud
+matplotlib
+gunicorn

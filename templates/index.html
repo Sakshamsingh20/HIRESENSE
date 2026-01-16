@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HireSense | AI Recruitment</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+
+<div class="container">
+    <div class="header">
+        <div class="brand">
+            <i class="fa-solid fa-layer-group logo-icon"></i>
+            <div>
+                <h1>HireSense</h1>
+                <p>AI-Powered Resume Screening</p>
+            </div>
+        </div>
+        <div class="status-dot">
+            <span style="height: 10px; width: 10px; background-color: #10B981; border-radius: 50%; display: inline-block; box-shadow: 0 0 10px #10B981;"></span>
+            <span style="font-size: 13px; color: #64748b; margin-left: 8px; font-weight: 500;">System Active</span>
+        </div>
+    </div>
+
+    <div class="main-content">
+        <div class="form-section">
+            <form method="POST" enctype="multipart/form-data" id="uploadForm">
+                <div style="margin-bottom: 30px;">
+                    <label><i class="fa-solid fa-briefcase" style="color: #6366f1;"></i> Job Description</label>
+                    <textarea name="job_description" placeholder="Paste the full job requirements here..." required>{{ request.form.get('job_description', '') }}</textarea>
+                </div>
+                <div style="margin-bottom: 10px;">
+                    <label><i class="fa-solid fa-file-pdf" style="color: #6366f1;"></i> Candidate Resume</label>
+                    <div class="file-drop-area" id="dropArea">
+                        <span class="file-msg" id="fileMsg">
+                            <i class="fa-solid fa-cloud-arrow-up" style="font-size: 40px; display:block; margin-bottom: 15px; color: #a855f7;"></i>
+                            Drag & Drop PDF here or <span style="color: #6366f1; font-weight: 700;">Browse</span>
+                        </span>
+                        <input class="file-input" type="file" name="resume" accept=".pdf" required onchange="updateFileName(this)">
+                    </div>
+                </div>
+                <button type="submit" class="btn-primary" id="analyzeBtn" onclick="loadingEffect()">
+                    Analyze Candidate Fit <i class="fa-solid fa-arrow-right" style="margin-left: 8px;"></i>
+                </button>
+            </form>
+        </div>
+
+        <div class="result-section">
+            {% if match_score is not none %}
+                {% set color_class = 'low-match' %}
+                {% if match_score >= 75 %}
+                    {% set color_class = 'high-match' %}
+                    {% set label_text = 'Excellent Fit' %}
+                    {% set icon = 'fa-check-circle' %}
+                {% elif match_score >= 50 %}
+                    {% set color_class = 'avg-match' %}
+                    {% set label_text = 'Potential Fit' %}
+                    {% set icon = 'fa-exclamation-circle' %}
+                {% else %}
+                    {% set color_class = 'low-match' %}
+                    {% set label_text = 'Weak Fit' %}
+                    {% set icon = 'fa-times-circle' %}
+                {% endif %}
+
+                <div class="score-circle" style="--percentage: {{ match_score }}%;">
+                    <span class="score-text">{{ match_score }}<span style="font-size: 24px; color: #94a3b8;">%</span></span>
+                </div>
+
+                <h2 class="match-label {{ color_class }}">
+                    <i class="fa-solid {{ icon }}"></i> {{ label_text }}
+                </h2>
+
+                {% if match_score < 80 %}
+                    <div style="margin-top: 25px; width: 100%; background: #fff; padding: 20px; border-radius: 12px; border-left: 5px solid #f59e0b; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);">
+                        <h4 style="font-size: 14px; margin-bottom: 8px; color: #334155; font-weight: 700;">
+                            <i class="fa-solid fa-lightbulb" style="color: #f59e0b;"></i> AI Suggestion:
+                        </h4>
+
+                        {% if missing_keywords %}
+                            <p style="font-size: 13px; color: #64748b; line-height: 1.6;">
+                                To increase your match score, you should highlight experience with:
+                                <strong style="color: #334155;">
+                                    {% for word in missing_keywords[:5] %}
+                                        {{ word|capitalize }}{{ ", " if not loop.last else "" }}
+                                    {% endfor %}
+                                </strong>.
+                            </p>
+
+                            <div style="margin-top: 15px; display: flex; flex-wrap: wrap; gap: 8px;">
+                                {% for keyword in missing_keywords %}
+                                    <span style="background: #fff7ed; color: #c2410c; padding: 5px 10px; border-radius: 6px; font-size: 12px; font-weight: 600; border: 1px solid #ffedd5;">
+                                        <i class="fa-solid fa-plus" style="font-size: 10px; margin-right: 4px;"></i> {{ keyword }}
+                                    </span>
+                                {% endfor %}
+                            </div>
+
+                        {% else %}
+                            <p style="font-size: 13px; color: #64748b; line-height: 1.6;">
+                                The resume content does not align well with the Job Description text. <br>
+                                <strong>Tip:</strong> Ensure the resume is text-readable (not an image scan) and includes standard industry terminology found in the JD.
+                            </p>
+                        {% endif %}
+                    </div>
+
+                {% else %}
+                    <div style="margin-top: 25px; width: 100%; background: #f0fdf4; padding: 15px; border-radius: 12px; text-align: center; border: 1px solid #bbf7d0;">
+                        <p style="color: #166534; font-size: 14px; font-weight: 600;">
+                            <i class="fa-solid fa-check-circle"></i> Outstanding! Your resume covers all key requirements.
+                        </p>
+                    </div>
+                {% endif %}
+
+                <button onclick="window.print()" class="btn-secondary">
+                    <i class="fa-solid fa-download"></i> Download Report
+                </button>
+
+            {% else %}
+                <div style="text-align: center; opacity: 0.7;">
+                    <i class="fa-solid fa-microchip" style="font-size: 80px; color: #e2e8f0; margin-bottom: 25px;"></i>
+                    <h3 style="color: #334155; margin-bottom: 10px;">Ready to Analyze</h3>
+                    <p style="font-size: 15px; color: #64748b;">Upload a resume to see AI insights.</p>
+                </div>
+            {% endif %}
+
+            {% if message %}
+                <div style="margin-top: 20px; color: #ef4444; background: #fef2f2; padding: 15px; border-radius: 12px; font-size: 14px; border: 1px solid #fee2e2;">{{ message }}</div>
+            {% endif %}
+        </div>
+    </div>
+
+    {% if history %}
+    <div style="background: rgba(255,255,255,0.6); border-top: 1px solid rgba(0,0,0,0.05); padding: 30px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <h4 style="color: #334155;"><i class="fa-solid fa-clock-rotate-left" style="color: #6366f1;"></i> Recent Activity</h4>
+
+            <form action="/clear_history" method="POST" onsubmit="return confirm('Are you sure you want to delete all history?');" class="delete-btn">
+                <button type="submit" style="background: #fee2e2; color: #dc2626; border: none; padding: 8px 16px; border-radius: 8px; font-size: 12px; font-weight: 600; cursor: pointer; transition: 0.2s;">
+                    <i class="fa-solid fa-trash"></i> Clear All
+                </button>
+            </form>
+        </div>
+
+        <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+            <thead>
+                <tr style="text-align: left; color: #64748b; border-bottom: 1px solid rgba(0,0,0,0.05);">
+                    <th style="padding: 10px;">Date</th>
+                    <th style="padding: 10px;">File Name</th>
+                    <th style="padding: 10px;">Score</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for scan in history %}
+                <tr style="border-bottom: 1px solid rgba(0,0,0,0.02);">
+                    <td style="padding: 12px; color: #64748b;">{{ scan.date }}</td>
+                    <td style="padding: 12px; font-weight: 600; color: #334155;">{{ scan.filename }}</td>
+                    <td style="padding: 12px; font-weight: bold;">
+                        <span style="background: {{ '#dcfce7' if scan.score >= 50 else '#fee2e2' }}; color: {{ '#166534' if scan.score >= 50 else '#991b1b' }}; padding: 4px 10px; border-radius: 6px; font-size: 12px;">
+                            {{ scan.score }}%
+                        </span>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+
+    <div class="footer">
+        <p>Developed by <strong>Saksham Singh</strong> <a href="https://www.linkedin.com/in/saksham-singh-aug/" target="_blank" class="social-link"><i class="fa-brands fa-linkedin"></i> LinkedIn</a></p>
+    </div>
+</div>
+
+<script>
+    function updateFileName(input) {
+        var dropArea = document.getElementById('dropArea');
+        var fileMsg = document.getElementById('fileMsg');
+        if (input.files && input.files.length > 0) {
+            fileMsg.innerHTML = '<i class="fa-solid fa-file-pdf" style="color: #ef4444; font-size: 40px; display:block; margin-bottom: 10px;"></i><span style="color: #334155; font-weight: 700;">' + input.files[0].name + '</span>';
+            dropArea.style.borderColor = '#6366f1';
+            dropArea.style.background = '#e0e7ff';
+        }
+    }
+    function loadingEffect() {
+        var btn = document.getElementById('analyzeBtn');
+        var form = document.getElementById('uploadForm');
+        if(form.checkValidity()) {
+            btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Processing...';
+            btn.style.opacity = '0.9';
+        }
+    }
+</script>
+</body>
+</html>
